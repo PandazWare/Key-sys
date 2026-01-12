@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Roblox Script Key</title>
+<title>Pandazware Key System</title>
 
 <style>
 * { box-sizing: border-box; font-family: Arial, sans-serif; }
@@ -23,9 +23,12 @@ body {
     width: 100%;
     max-width: 380px;
     text-align: center;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
-h1 { margin-bottom: 10px; }
-p { opacity: 0.8; }
+h1 { margin-bottom: 10px; font-size: 24px; }
+p { opacity: 0.8; margin-bottom: 20px; }
 
 button {
     width: 100%;
@@ -35,271 +38,190 @@ button {
     border-radius: 10px;
     font-size: 16px;
     cursor: pointer;
-    transition: opacity 0.3s;
+    transition: all 0.3s;
+    font-weight: bold;
 }
 button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
-#gen { background: #00c853; color: black; }
-#copy { background: #2979ff; color: white; display: none; }
 
-pre {
-    background: rgba(0,0,0,0.5);
-    padding: 12px;
-    border-radius: 8px;
-    margin-top: 15px;
-    word-break: break-all;
-}
-.error { 
-    color: #ff5252;
-    margin-top: 15px;
-}
-.warning {
-    color: #ffa726;
-    margin-top: 15px;
-    font-size: 14px;
-}
-.success {
-    color: #00c853;
-    margin-top: 10px;
-}
-.save-warning {
-    background: rgba(255, 167, 38, 0.2);
-    border: 2px solid #ffa726;
+/* Button Styles */
+#actionBtn { background: #00c6ff; color: #000; }
+#actionBtn:hover:not(:disabled) { background: #0072ff; color: white; }
+
+#copy { background: #4caf50; color: white; display: none; margin-top: 10px; }
+#copy:hover { background: #45a049; }
+
+/* Status Box */
+.key-box {
+    background: rgba(0,0,0,0.3);
     padding: 15px;
-    border-radius: 10px;
+    border-radius: 8px;
     margin-top: 20px;
+    word-break: break-all;
+    font-family: monospace;
     display: none;
-    animation: pulse 2s infinite;
+    border: 1px solid rgba(255,255,255,0.1);
 }
-.save-warning h3 {
-    margin: 0 0 10px 0;
-    color: #ffa726;
-    font-size: 18px;
-}
-@keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-}
-.countdown {
-    font-size: 24px;
-    font-weight: bold;
-    color: #ff5252;
-    margin-top: 10px;
-}
-.loader {
-    border: 3px solid rgba(255,255,255,0.3);
-    border-top: 3px solid white;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin: 20px auto;
-}
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
+
+.error { color: #ff6b6b; font-size: 14px; margin-top: 10px; display: none; }
+.loader { border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: none; margin: 0 auto; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>
 </head>
-
 <body>
+
 <div class="container">
-    <h1>Roblox Script Key</h1>
-    <p id="subtitle">Generate your 24-hour key below</p>
+    <h1>Pandazware Key</h1>
+    <p id="statusText">Please complete the verification step.</p>
 
-    <div id="loadingDiv" style="display: none;">
-        <div class="loader"></div>
-        <p>Verifying access...</p>
-    </div>
+    <div id="loader" class="loader"></div>
 
-    <div id="mainContent" style="display: none;">
-        <button id="gen" onclick="generate()">Generate Key</button>
-        <pre id="key" style="display: none;"></pre>
-        <button id="copy" onclick="copyKey()">Copy Key</button>
+    <button id="actionBtn" onclick="handleAction()">Complete Verification</button>
 
-        <div class="save-warning" id="saveWarning">
-            <h3>⚠️ SAVE THIS KEY!</h3>
-            <p>This page will redirect in <span class="countdown" id="countdown">15</span> seconds</p>
-            <p style="font-size: 12px; opacity: 0.8;">You'll need to complete the link again for a new key</p>
-        </div>
+    <div id="keyBox" class="key-box"></div>
+    
+    <button id="copy" onclick="copyKey()">Copy Key</button>
 
-        <p class="error" id="err"></p>
-        <p class="warning" id="warn"></p>
-    </div>
+    <div id="errorMsg" class="error"></div>
 </div>
 
 <script>
-const LINKVERTISE_URL = "https://link-hub.net/2646346/ZPXj7mNJU9Pa";
-
-const params = new URLSearchParams(window.location.search);
-const token = params.get("token");
-
-let countdownInterval = null;
-let redirectSeconds = 15;
-
-// Sofort beim Laden prüfen
-(async function init() {
-    const loadingDiv = document.getElementById("loadingDiv");
-    const mainContent = document.getElementById("mainContent");
-    
-    if (!token) {
-        // Kein Token = Kein Zugang
-        document.body.innerHTML = `
-            <div class="container">
-                <h2 style="color: #ff5252;">Access Denied</h2>
-                <p>Please complete the verification first to get access.</p>
-                <button onclick="window.location.href='${LINKVERTISE_URL}'" style="background: #00c853; color: black; padding: 14px; border: none; border-radius: 10px; cursor: pointer; margin-top: 20px; width: 100%;">
-                    Complete Verification
-                </button>
-            </div>
-        `;
-        return;
-    }
-    
-    // Token vorhanden - verifizieren
-    loadingDiv.style.display = "block";
-    
-    try {
-        const response = await fetch(`/api/validate-token?action=verify&token=${token}`);
-        const data = await response.json();
-        
-        // Token aus URL entfernen (WICHTIG!)
-        window.history.replaceState({}, document.title, window.location.pathname);
-        
-        if (!data.valid) {
-            let errorMsg = "Invalid or expired access token.";
-            if (data.reason === "token_already_used") {
-                errorMsg = "This link has already been used. Please complete the verification again.";
-            }
-            
-            document.body.innerHTML = `
-                <div class="container">
-                    <h2 style="color: #ff5252;">Access Denied</h2>
-                    <p>${errorMsg}</p>
-                    <button onclick="window.location.href='${LINKVERTISE_URL}'" style="background: #00c853; color: black; padding: 14px; border: none; border-radius: 10px; cursor: pointer; margin-top: 20px; width: 100%;">
-                        Complete Verification Again
-                    </button>
-                </div>
-            `;
-            return;
-        }
-        
-        // Token ist gültig - Zeige Hauptinhalt
-        loadingDiv.style.display = "none";
-        mainContent.style.display = "block";
-        
-    } catch (error) {
-        document.body.innerHTML = `
-            <div class="container">
-                <h2 style="color: #ff5252;">Connection Error</h2>
-                <p>Could not verify access. Please try again.</p>
-                <button onclick="window.location.reload()" style="background: #00c853; color: black; padding: 14px; border: none; border-radius: 10px; cursor: pointer; margin-top: 20px; width: 100%;">
-                    Retry
-                </button>
-            </div>
-        `;
-    }
-})();
-
-async function generate() {
-    const genBtn = document.getElementById("gen");
-    const keyEl = document.getElementById("key");
+    let globalToken = null;
+    const actionBtn = document.getElementById("actionBtn");
+    const statusText = document.getElementById("statusText");
+    const errorMsg = document.getElementById("errorMsg");
+    const loader = document.getElementById("loader");
+    const keyBox = document.getElementById("keyBox");
     const copyBtn = document.getElementById("copy");
-    const errEl = document.getElementById("err");
-    const warnEl = document.getElementById("warn");
-    
-    // Reset
-    errEl.innerText = "";
-    warnEl.innerText = "";
-    genBtn.disabled = true;
-    genBtn.innerText = "Generating...";
-    
-    try {
-        const r = await fetch("/api/generate");
-        const d = await r.json();
-        
-        if (d.success === false) {
-            // Rate limit error
-            if (d.error === "rate_limit") {
-                errEl.innerText = d.message;
-                warnEl.innerText = `⏱️ Time remaining: ${d.timeRemaining}`;
+
+    // Init: Prüfe ob User von Linkvertise zurückkommt
+    (async function init() {
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get("token");
+
+        if (token) {
+            // Ladezustand anzeigen
+            setLoading(true);
+            actionBtn.style.display = 'none';
+            statusText.innerText = "Validating session...";
+
+            try {
+                // Token prüfen
+                const req = await fetch(`/api/validate-token?token=${token}`);
+                const res = await req.json();
+
+                if (res.valid) {
+                    // Token ist gültig
+                    globalToken = token;
+                    statusText.innerText = "Verification complete!";
+                    actionBtn.innerText = "Generate Key";
+                    actionBtn.style.display = 'block';
+                    actionBtn.onclick = generateKey; // Funktion ändern
+                } else {
+                    // Token ungültig
+                    showError("Invalid or expired session. Please try again.");
+                    actionBtn.style.display = 'block';
+                    actionBtn.innerText = "Complete Verification";
+                    actionBtn.onclick = startVerification;
+                }
+            } catch (e) {
+                showError("Connection error.");
+                actionBtn.style.display = 'block';
+            }
+            setLoading(false);
+        } else {
+            // Kein Token -> Normaler Start
+            actionBtn.onclick = startVerification;
+        }
+    })();
+
+    // Schritt 1: Start Linkvertise Flow
+    function startVerification() {
+        // Leitet zu api/init weiter, was den Token generiert und zu Linkvertise redirectet
+        window.location.href = "/api/init";
+    }
+
+    // Schritt 2: Key generieren (wenn Token vorhanden)
+    async function generateKey() {
+        if (!globalToken) return;
+
+        setLoading(true);
+        actionBtn.disabled = true;
+        errorMsg.style.display = 'none';
+
+        try {
+            const req = await fetch(`/api/generate?token=${globalToken}`);
+            const res = await req.json();
+
+            if (res.success) {
+                // Erfolg
+                statusText.innerText = "Key Generated successfully!";
+                actionBtn.style.display = 'none';
                 
-                // Button wieder aktivieren nach Rate Limit
-                setTimeout(() => {
-                    genBtn.innerText = "Try Again Later";
-                    genBtn.disabled = false;
-                }, 2000);
+                keyBox.innerText = res.key;
+                keyBox.style.display = 'block';
+                copyBtn.style.display = 'block';
+                
+                // Optional: Zeige Ablaufzeit oder Cooldown an
+                if(res.nextKeyIn) {
+                    const info = document.createElement('div');
+                    info.style.fontSize = "12px";
+                    info.style.marginTop = "10px";
+                    info.style.opacity = "0.7";
+                    info.innerText = `Next key in: ${res.nextKeyIn}`;
+                    document.querySelector('.container').appendChild(info);
+                }
+
             } else {
-                errEl.innerText = d.message || "An error occurred.";
-                genBtn.innerText = "Generate Key";
-                genBtn.disabled = false;
+                // Fehler (z.B. Cooldown oder Token ungültig)
+                showError(res.message || "Failed to generate key.");
+                actionBtn.disabled = false;
+                
+                // Falls Token ungültig war, Reset
+                if(res.message && res.message.includes("session")) {
+                    setTimeout(() => window.location.href = "/", 3000);
+                }
             }
-            return;
+        } catch (e) {
+            showError("Server error occurred.");
+            actionBtn.disabled = false;
         }
-        
-        // Erfolg
-        keyEl.innerText = d.key;
-        keyEl.style.display = "block";
-        copyBtn.style.display = "block";
-        genBtn.style.display = "none"; // Verstecke Generate Button
-        
-        // Info anzeigen
-        warnEl.style.color = "#00c853";
-        warnEl.innerText = `✓ Key valid for ${d.expires}. Next key in ${d.nextKeyIn}.`;
-        
-    } catch (error) {
-        errEl.innerText = "Connection error. Please try again.";
-        genBtn.innerText = "Generate Key";
-        genBtn.disabled = false;
+        setLoading(false);
     }
-}
 
-function copyKey() {
-    const keyText = document.getElementById("key").innerText;
-    navigator.clipboard.writeText(keyText);
-    
-    const copyBtn = document.getElementById("copy");
-    copyBtn.innerText = "✓ Copied!";
-    copyBtn.disabled = true;
-    
-    // Zeige "Save this key" Warnung
-    const saveWarning = document.getElementById("saveWarning");
-    saveWarning.style.display = "block";
-    
-    // Starte Countdown
-    startCountdown();
-}
+    function copyKey() {
+        const text = keyBox.innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            copyBtn.innerText = "✓ Copied!";
+            setTimeout(() => copyBtn.innerText = "Copy Key", 2000);
+        });
+    }
 
-function startCountdown() {
-    const countdownEl = document.getElementById("countdown");
-    
-    countdownInterval = setInterval(() => {
-        redirectSeconds--;
-        countdownEl.innerText = redirectSeconds;
-        
-        if (redirectSeconds <= 0) {
-            clearInterval(countdownInterval);
-            window.location.href = LINKVERTISE_URL;
+    function setLoading(isLoading) {
+        if(isLoading) {
+            loader.style.display = 'block';
+        } else {
+            loader.style.display = 'none';
         }
-    }, 1000);
-}
-
-// Verhindere zurück-Button nach Key-Generierung
-window.addEventListener('popstate', function(event) {
-    if (document.getElementById("key").style.display === "block") {
-        window.location.href = LINKVERTISE_URL;
     }
-});
 
-// Verhindere Seite neu laden nach Key-Generierung
-window.addEventListener('beforeunload', function(event) {
-    if (document.getElementById("key").style.display === "block") {
-        event.preventDefault();
-        event.returnValue = '';
+    function showError(msg) {
+        errorMsg.innerText = msg;
+        errorMsg.style.display = 'block';
     }
-});
+
+    // Einfacher Schutz gegen Inspect Element / Debugging (Optional)
+    document.addEventListener('contextmenu', event => event.preventDefault());
+    document.onkeydown = function(e) {
+        if(e.keyCode == 123) { return false; }
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) { return false; }
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) { return false; }
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) { return false; }
+        if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) { return false; }
+    }
 </script>
+
 </body>
 </html>
