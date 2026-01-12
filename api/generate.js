@@ -1,16 +1,50 @@
 import crypto from "crypto";
 
 export default async function handler(req, res) {
-    // IP-Adresse des Clients holen
+    // 1. Hole Token und IP
+    const { token } = req.query;
     const clientIp = req.headers['x-forwarded-for']?.split(',')[0] || 
                      req.headers['x-real-ip'] || 
                      req.connection.remoteAddress;
+
+    // --- SICHERHEITSCHECK START ---
+    
+    if (!token) {
+        return res.status(401).json({ success: false, message: "Missing validation token." });
+    }
+
+    // Token in Redis prüfen (temp_token:XYZ)
+    try {
+        const tokenCheck = await fetch(`${process.env.REDIS_URL}/get/temp_token:${token}`, {
+            headers: { Authorization: `Bearer ${process.env.REDIS_TOKEN}` }
+        });
+        const tokenData = await tokenCheck.json();
+
+        // Wenn Token nicht existiert (oder abgelaufen)
+        if (!tokenData.result) {
+            return res.status(403).json({ success: false, message: "Invalid or expired session. Please verify again." });
+        }
+
+        // WICHTIG: Token sofort löschen! (Anti-Bypass)
+        await fetch(`${process.env.REDIS_URL}/del/temp_token:${token}`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${process.env.REDIS_TOKEN}` }
+        });
+
+    } catch (e) {
+        console.error("Redis Error:", e);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+    // --- SICHERHEITSCHECK ENDE ---
+
+
+    // --- IP RATE LIMIT & KEY GENERATION ---
     
     // IP hashen für Privatsphäre
     const ipHash = crypto.createHash('sha256').update(clientIp).digest('hex');
     const redisKey = `ratelimit:${ipHash}`;
     
-    const COOLDOWN_HOURS = 23;
+    const COOLDOWN_HOURS = 24;
     const COOLDOWN_SECONDS = COOLDOWN_HOURS * 60 * 60;
     
     try {
@@ -22,7 +56,7 @@ export default async function handler(req, res) {
         const checkData = await checkResponse.json();
         
         if (checkData.result) {
-            // IP hat bereits einen Key generiert
+            // IP hat bereits einen Key generiert -> Cooldown prüfen
             const data = JSON.parse(checkData.result);
             const timePassedSeconds = Math.floor((Date.now() - data.timestamp) / 1000);
             const timeRemainingSeconds = COOLDOWN_SECONDS - timePassedSeconds;
@@ -32,21 +66,19 @@ export default async function handler(req, res) {
                 const hoursRemaining = Math.floor(timeRemainingSeconds / 3600);
                 const minutesRemaining = Math.floor((timeRemainingSeconds % 3600) / 60);
                 
-                return res.status(429).json({
+                return res.json({
                     success: false,
-                    error: "rate_limit",
-                    message: `Du kannst nur alle ${COOLDOWN_HOURS} Stunden einen Key generieren.`,
-                    timeRemaining: `${hoursRemaining}h ${minutesRemaining}m`,
-                    nextKeyAt: data.timestamp + (COOLDOWN_SECONDS * 1000)
+                    message: `Cooldown active. Wait ${hoursRemaining}h ${minutesRemaining}m.`
                 });
             }
         }
         
-        // Generiere neuen Key
-        const key = crypto.randomBytes(16).toString("hex");
-        const ttl = 24 * 60 * 60; // 24h
+        // --- ALLES OK, GENERIERE NEUEN KEY ---
         
-        // Speichere den Key
+        const key = "PANDAZ-" + crypto.randomBytes(8).toString("hex").toUpperCase();
+        const ttl = 24 * 60 * 60; // Key ist 24h gültig
+
+        // Speichere den eigentlichen Key
         await fetch(`${process.env.REDIS_URL}/set/${key}`, {
             method: "POST",
             headers: {
@@ -56,13 +88,14 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 value: JSON.stringify({
                     createdAt: Date.now(),
-                    hwid: null
+                    hwid: null,
+                    used: false
                 }),
                 ttl
             })
         });
         
-        // Speichere IP-Tracking mit TTL
+        // Update Rate Limit für diese IP
         await fetch(`${process.env.REDIS_URL}/set/${redisKey}`, {
             method: "POST",
             headers: {
@@ -71,26 +104,25 @@ export default async function handler(req, res) {
             },
             body: JSON.stringify({
                 value: JSON.stringify({
-                    timestamp: Date.now(),
-                    keysGenerated: (checkData.result ? JSON.parse(checkData.result).keysGenerated + 1 : 1)
+                    timestamp: Date.now()
                 }),
                 ttl: COOLDOWN_SECONDS
             })
         });
         
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             key,
             expires: "24 hours",
-            nextKeyIn: `${COOLDOWN_HOURS} hours`
+            nextKeyIn: "24 hours"
         });
         
     } catch (error) {
-        console.error("Rate limit check error:", error);
+        console.error("Generate error:", error);
         res.status(500).json({
             success: false,
             error: "server_error",
-            message: "An error accured. Please try again later."
+            message: "An error occurred. Please try again later."
         });
     }
-                    }
+}
