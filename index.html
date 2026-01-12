@@ -64,29 +64,144 @@ pre {
     color: #00c853;
     margin-top: 10px;
 }
+.save-warning {
+    background: rgba(255, 167, 38, 0.2);
+    border: 2px solid #ffa726;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 20px;
+    display: none;
+    animation: pulse 2s infinite;
+}
+.save-warning h3 {
+    margin: 0 0 10px 0;
+    color: #ffa726;
+    font-size: 18px;
+}
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+.countdown {
+    font-size: 24px;
+    font-weight: bold;
+    color: #ff5252;
+    margin-top: 10px;
+}
+.loader {
+    border: 3px solid rgba(255,255,255,0.3);
+    border-top: 3px solid white;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 </style>
 </head>
 
 <body>
 <div class="container">
     <h1>Roblox Script Key</h1>
-    <p>Generate your 24-hour key below</p>
+    <p id="subtitle">Generate your 24-hour key below</p>
 
-    <button id="gen" onclick="generate()">Generate Key</button>
-    <pre id="key" style="display: none;"></pre>
-    <button id="copy" onclick="copyKey()">Copy Key</button>
+    <div id="loadingDiv" style="display: none;">
+        <div class="loader"></div>
+        <p>Verifying access...</p>
+    </div>
 
-    <p class="error" id="err"></p>
-    <p class="warning" id="warn"></p>
+    <div id="mainContent" style="display: none;">
+        <button id="gen" onclick="generate()">Generate Key</button>
+        <pre id="key" style="display: none;"></pre>
+        <button id="copy" onclick="copyKey()">Copy Key</button>
+
+        <div class="save-warning" id="saveWarning">
+            <h3>⚠️ SAVE THIS KEY!</h3>
+            <p>This page will redirect in <span class="countdown" id="countdown">15</span> seconds</p>
+            <p style="font-size: 12px; opacity: 0.8;">You'll need to complete the link again for a new key</p>
+        </div>
+
+        <p class="error" id="err"></p>
+        <p class="warning" id="warn"></p>
+    </div>
 </div>
 
 <script>
-const params = new URLSearchParams(window.location.search);
-const passed = params.get("lv");
+const LINKVERTISE_URL = "https://link-hub.net/2646346/ZPXj7mNJU9Pa";
 
-if (passed !== "1") {
-    document.body.innerHTML = "<h2 style='color:white'>Please complete Linkvertise first.</h2>";
-}
+const params = new URLSearchParams(window.location.search);
+const token = params.get("token");
+
+let countdownInterval = null;
+let redirectSeconds = 15;
+
+// Sofort beim Laden prüfen
+(async function init() {
+    const loadingDiv = document.getElementById("loadingDiv");
+    const mainContent = document.getElementById("mainContent");
+    
+    if (!token) {
+        // Kein Token = Kein Zugang
+        document.body.innerHTML = `
+            <div class="container">
+                <h2 style="color: #ff5252;">Access Denied</h2>
+                <p>Please complete the verification first to get access.</p>
+                <button onclick="window.location.href='${LINKVERTISE_URL}'" style="background: #00c853; color: black; padding: 14px; border: none; border-radius: 10px; cursor: pointer; margin-top: 20px; width: 100%;">
+                    Complete Verification
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    // Token vorhanden - verifizieren
+    loadingDiv.style.display = "block";
+    
+    try {
+        const response = await fetch(`/api/validate-token?action=verify&token=${token}`);
+        const data = await response.json();
+        
+        // Token aus URL entfernen (WICHTIG!)
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        if (!data.valid) {
+            let errorMsg = "Invalid or expired access token.";
+            if (data.reason === "token_already_used") {
+                errorMsg = "This link has already been used. Please complete the verification again.";
+            }
+            
+            document.body.innerHTML = `
+                <div class="container">
+                    <h2 style="color: #ff5252;">Access Denied</h2>
+                    <p>${errorMsg}</p>
+                    <button onclick="window.location.href='${LINKVERTISE_URL}'" style="background: #00c853; color: black; padding: 14px; border: none; border-radius: 10px; cursor: pointer; margin-top: 20px; width: 100%;">
+                        Complete Verification Again
+                    </button>
+                </div>
+            `;
+            return;
+        }
+        
+        // Token ist gültig - Zeige Hauptinhalt
+        loadingDiv.style.display = "none";
+        mainContent.style.display = "block";
+        
+    } catch (error) {
+        document.body.innerHTML = `
+            <div class="container">
+                <h2 style="color: #ff5252;">Connection Error</h2>
+                <p>Could not verify access. Please try again.</p>
+                <button onclick="window.location.reload()" style="background: #00c853; color: black; padding: 14px; border: none; border-radius: 10px; cursor: pointer; margin-top: 20px; width: 100%;">
+                    Retry
+                </button>
+            </div>
+        `;
+    }
+})();
 
 async function generate() {
     const genBtn = document.getElementById("gen");
@@ -109,12 +224,18 @@ async function generate() {
             // Rate limit error
             if (d.error === "rate_limit") {
                 errEl.innerText = d.message;
-                warnEl.innerText = `⏱️ Verbleibende Zeit: ${d.timeRemaining}`;
+                warnEl.innerText = `⏱️ Time remaining: ${d.timeRemaining}`;
+                
+                // Button wieder aktivieren nach Rate Limit
+                setTimeout(() => {
+                    genBtn.innerText = "Try Again Later";
+                    genBtn.disabled = false;
+                }, 2000);
             } else {
-                errEl.innerText = d.message || "Ein Fehler ist aufgetreten.";
+                errEl.innerText = d.message || "An error occurred.";
+                genBtn.innerText = "Generate Key";
+                genBtn.disabled = false;
             }
-            genBtn.innerText = "Generate Key";
-            genBtn.disabled = false;
             return;
         }
         
@@ -122,14 +243,14 @@ async function generate() {
         keyEl.innerText = d.key;
         keyEl.style.display = "block";
         copyBtn.style.display = "block";
-        genBtn.innerText = "✓ Key Generated";
+        genBtn.style.display = "none"; // Verstecke Generate Button
         
         // Info anzeigen
         warnEl.style.color = "#00c853";
-        warnEl.innerText = `✓ Key gültig für ${d.expires}. Nächster Key in ${d.nextKeyIn}.`;
+        warnEl.innerText = `✓ Key valid for ${d.expires}. Next key in ${d.nextKeyIn}.`;
         
     } catch (error) {
-        errEl.innerText = "Verbindungsfehler. Bitte versuche es erneut.";
+        errEl.innerText = "Connection error. Please try again.";
         genBtn.innerText = "Generate Key";
         genBtn.disabled = false;
     }
@@ -140,13 +261,45 @@ function copyKey() {
     navigator.clipboard.writeText(keyText);
     
     const copyBtn = document.getElementById("copy");
-    const originalText = copyBtn.innerText;
     copyBtn.innerText = "✓ Copied!";
+    copyBtn.disabled = true;
     
-    setTimeout(() => {
-        copyBtn.innerText = originalText;
-    }, 2000);
+    // Zeige "Save this key" Warnung
+    const saveWarning = document.getElementById("saveWarning");
+    saveWarning.style.display = "block";
+    
+    // Starte Countdown
+    startCountdown();
 }
+
+function startCountdown() {
+    const countdownEl = document.getElementById("countdown");
+    
+    countdownInterval = setInterval(() => {
+        redirectSeconds--;
+        countdownEl.innerText = redirectSeconds;
+        
+        if (redirectSeconds <= 0) {
+            clearInterval(countdownInterval);
+            window.location.href = LINKVERTISE_URL;
+        }
+    }, 1000);
+}
+
+// Verhindere zurück-Button nach Key-Generierung
+window.addEventListener('popstate', function(event) {
+    if (document.getElementById("key").style.display === "block") {
+        window.location.href = LINKVERTISE_URL;
+    }
+});
+
+// Verhindere Seite neu laden nach Key-Generierung
+window.addEventListener('beforeunload', function(event) {
+    if (document.getElementById("key").style.display === "block") {
+        event.preventDefault();
+        event.returnValue = '';
+    }
+});
 </script>
 </body>
 </html>
