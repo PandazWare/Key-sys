@@ -1,15 +1,87 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Roblox Script Key</title>
+
+<style>
+* { box-sizing: border-box; font-family: Arial, sans-serif; }
+body {
+    margin: 0;
+    height: 100vh;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+.container {
+    background: rgba(0,0,0,0.4);
+    padding: 30px;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+}
+h1 { margin-bottom: 10px; }
+p { opacity: 0.8; }
+
+button {
+    width: 100%;
+    padding: 14px;
+    margin-top: 15px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    cursor: pointer;
+}
+#gen { background: #00c853; color: black; }
+#copy { background: #2979ff; color: white; display: none; }
+
+pre {
+    background: rgba(0,0,0,0.5);
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 15px;
+    word-break: break-all;
+}
+.error { color: #ff5252; }
+</style>
+</head>
+
 <body>
-<h2>Dein Roblox Key</h2>
-<button onclick="getKey()">Generate Key</button>
-<pre id="out"></pre>
+<div class="container">
+    <h1>Roblox Script Key</h1>
+    <p>Generate your 24-hour key below</p>
+
+    <button id="gen" onclick="generate()">Generate Key</button>
+    <pre id="key"></pre>
+    <button id="copy" onclick="copyKey()">Copy Key</button>
+
+    <p class="error" id="err"></p>
+</div>
 
 <script>
-async function getKey() {
+const params = new URLSearchParams(window.location.search);
+const passed = params.get("lv");
+
+if (passed !== "1") {
+    document.body.innerHTML = "<h2 style='color:white'>Please complete Linkvertise first.</h2>";
+}
+
+async function generate() {
     const r = await fetch("/api/generate");
     const d = await r.json();
-    document.getElementById("out").innerText = d.key;
+    document.getElementById("key").innerText = d.key;
+    document.getElementById("copy").style.display = "block";
+}
+
+function copyKey() {
+    navigator.clipboard.writeText(
+        document.getElementById("key").innerText
+    );
+    alert("Key copied!");
 }
 </script>
 </body>
