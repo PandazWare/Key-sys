@@ -35,6 +35,11 @@ button {
     border-radius: 10px;
     font-size: 16px;
     cursor: pointer;
+    transition: opacity 0.3s;
+}
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 #gen { background: #00c853; color: black; }
 #copy { background: #2979ff; color: white; display: none; }
@@ -46,7 +51,19 @@ pre {
     margin-top: 15px;
     word-break: break-all;
 }
-.error { color: #ff5252; }
+.error { 
+    color: #ff5252;
+    margin-top: 15px;
+}
+.warning {
+    color: #ffa726;
+    margin-top: 15px;
+    font-size: 14px;
+}
+.success {
+    color: #00c853;
+    margin-top: 10px;
+}
 </style>
 </head>
 
@@ -56,10 +73,11 @@ pre {
     <p>Generate your 24-hour key below</p>
 
     <button id="gen" onclick="generate()">Generate Key</button>
-    <pre id="key"></pre>
+    <pre id="key" style="display: none;"></pre>
     <button id="copy" onclick="copyKey()">Copy Key</button>
 
     <p class="error" id="err"></p>
+    <p class="warning" id="warn"></p>
 </div>
 
 <script>
@@ -71,17 +89,63 @@ if (passed !== "1") {
 }
 
 async function generate() {
-    const r = await fetch("/api/generate");
-    const d = await r.json();
-    document.getElementById("key").innerText = d.key;
-    document.getElementById("copy").style.display = "block";
+    const genBtn = document.getElementById("gen");
+    const keyEl = document.getElementById("key");
+    const copyBtn = document.getElementById("copy");
+    const errEl = document.getElementById("err");
+    const warnEl = document.getElementById("warn");
+    
+    // Reset
+    errEl.innerText = "";
+    warnEl.innerText = "";
+    genBtn.disabled = true;
+    genBtn.innerText = "Generating...";
+    
+    try {
+        const r = await fetch("/api/generate");
+        const d = await r.json();
+        
+        if (d.success === false) {
+            // Rate limit error
+            if (d.error === "rate_limit") {
+                errEl.innerText = d.message;
+                warnEl.innerText = `⏱️ Verbleibende Zeit: ${d.timeRemaining}`;
+            } else {
+                errEl.innerText = d.message || "Ein Fehler ist aufgetreten.";
+            }
+            genBtn.innerText = "Generate Key";
+            genBtn.disabled = false;
+            return;
+        }
+        
+        // Erfolg
+        keyEl.innerText = d.key;
+        keyEl.style.display = "block";
+        copyBtn.style.display = "block";
+        genBtn.innerText = "✓ Key Generated";
+        
+        // Info anzeigen
+        warnEl.style.color = "#00c853";
+        warnEl.innerText = `✓ Key gültig für ${d.expires}. Nächster Key in ${d.nextKeyIn}.`;
+        
+    } catch (error) {
+        errEl.innerText = "Verbindungsfehler. Bitte versuche es erneut.";
+        genBtn.innerText = "Generate Key";
+        genBtn.disabled = false;
+    }
 }
 
 function copyKey() {
-    navigator.clipboard.writeText(
-        document.getElementById("key").innerText
-    );
-    alert("Key copied!");
+    const keyText = document.getElementById("key").innerText;
+    navigator.clipboard.writeText(keyText);
+    
+    const copyBtn = document.getElementById("copy");
+    const originalText = copyBtn.innerText;
+    copyBtn.innerText = "✓ Copied!";
+    
+    setTimeout(() => {
+        copyBtn.innerText = originalText;
+    }, 2000);
 }
 </script>
 </body>
