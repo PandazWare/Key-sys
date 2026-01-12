@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<body>
+<h2>Dein Roblox Key</h2>
+<button onclick="getKey()">Generate Key</button>
+<pre id="out"></pre>
+
+<script>
+async function getKey() {
+    const r = await fetch("/api/generate");
+    const d = await r.json();
+    document.getElementById("out").innerText = d.key;
+}
+</script>
+</body>
+</html>
